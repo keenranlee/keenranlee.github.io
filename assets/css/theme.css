@@ -434,27 +434,39 @@ a:hover {
   color: var(--text-secondary);
 }
 .status-links {
-  display: flex;
-  justify-content: center;
-  gap: 8px;
-  margin-top: 6px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin-top: 8px;
 }
-.social-link {
-  width: 34px;
-  height: 34px;
+.social-btn {
   display: flex;
   align-items: center;
-  justify-content: center;
+  gap: 6px;
+  padding: 6px 10px;
   border: 1px solid var(--glass-border);
-  border-radius: 50%;
+  border-radius: 6px;
   font-family: var(--font-mono);
-  font-size: 0.6rem;
+  font-size: 0.7rem;
   transition: all var(--transition);
+  background: var(--glass-bg);
+  text-decoration: none;
+  color: var(--text-secondary);
 }
-.social-link:hover {
+.social-btn:hover {
   border-color: var(--text-primary);
   background: var(--glass-hover);
   box-shadow: 0 0 12px var(--glow);
+  color: var(--text-primary);
+}
+.social-icon {
+  font-size: 0.85rem;
+  width: 20px;
+  text-align: center;
+}
+.social-label {
+  font-size: 0.65rem;
+  letter-spacing: 0.5px;
 }
 
 /* ---------- Music Player ---------- */
@@ -564,7 +576,144 @@ a:hover {
   color: var(--text-primary);
 }
 
-/* ---------- Footer ---------- */
+/* ---------- Social Buttons (grid) ---------- */
+/* ---------- GitHub Projects Widget ---------- */
+.github-list {
+  max-height: 200px;
+  overflow-y: auto;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+}
+.github-loading, .blog-loading {
+  color: var(--text-dim);
+  text-align: center;
+  padding: 16px 0;
+  font-size: 0.7rem;
+}
+.github-repo {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--glass-border);
+  transition: background var(--transition);
+}
+.github-repo:last-child {
+  border-bottom: none;
+}
+.github-repo:hover {
+  background: var(--glass-hover);
+}
+.github-repo-name {
+  color: var(--text-primary);
+  font-weight: 500;
+  font-size: 0.7rem;
+}
+.github-repo-stars {
+  color: var(--text-dim);
+  font-size: 0.6rem;
+}
+.github-repo-desc {
+  color: var(--text-dim);
+  font-size: 0.6rem;
+  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.github-error {
+  color: var(--danger);
+  text-align: center;
+  padding: 16px 0;
+  font-size: 0.7rem;
+}
+
+/* ---------- Blog Preview Widget ---------- */
+.blog-list {
+  max-height: 200px;
+  overflow-y: auto;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+}
+.blog-post {
+  padding: 8px;
+  border-bottom: 1px solid var(--glass-border);
+  transition: background var(--transition);
+}
+.blog-post:last-child {
+  border-bottom: none;
+}
+.blog-post:hover {
+  background: var(--glass-hover);
+}
+.blog-post-title {
+  color: var(--text-primary);
+  font-size: 0.72rem;
+  font-weight: 500;
+  margin-bottom: 2px;
+}
+.blog-post-meta {
+  color: var(--text-dim);
+  font-size: 0.6rem;
+}
+.blog-error {
+  color: var(--danger);
+  text-align: center;
+  padding: 16px 0;
+  font-size: 0.7rem;
+}
+
+/* ---------- Tech Stack Widget ---------- */
+.tech-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: center;
+}
+.tech-tag {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  padding: 4px 10px;
+  border: 1px solid var(--glass-border);
+  border-radius: 4px;
+  color: var(--text-secondary);
+  background: rgba(0, 255, 65, 0.03);
+  transition: all var(--transition);
+}
+.tech-tag:hover {
+  border-color: var(--text-primary);
+  background: var(--glass-hover);
+  box-shadow: 0 0 8px var(--glow-weak);
+}
+
+/* ---------- Timeline Widget ---------- */
+.timeline-list {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+}
+.timeline-item {
+  display: flex;
+  gap: 10px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--glass-border);
+  align-items: baseline;
+}
+.timeline-item:last-child {
+  border-bottom: none;
+}
+.tl-date {
+  color: var(--text-dim);
+  font-size: 0.6rem;
+  min-width: 55px;
+  flex-shrink: 0;
+}
+.tl-text {
+  color: var(--text-secondary);
+  font-size: 0.7rem;
+}
+
+/* ---------- About Overlay ---------- */
+.about-overlay {
 #footer {
   text-align: center;
   padding: 20px;

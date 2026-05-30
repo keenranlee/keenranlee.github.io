@@ -7,6 +7,12 @@
 
 /* ---------- Constants ---------- */
 const STORAGE_KEY = 'keenran_cyberspace';
+const CORS_PROXY = 'https://api.allorigins.win/raw?url=';
+const PLAYLIST_API = {
+  playlist_002: 'https://music.163.com/api/v6/playlist/detail?id=13646500759&n=25&s=25',
+  playlist_003: 'https://music.163.com/api/v6/playlist/detail?id=5021640150&n=10&s=10',
+  playlist_004: 'https://music.163.com/api/v6/playlist/detail?id=17551620926&n=15&s=15',
+};
 const PLAYLISTS = {
   playlist_002: { id: 13646500759, name: '粤语' },
   playlist_003: { id: 5021640150, name: '喜欢的音乐' },
@@ -209,14 +215,15 @@ const SONG_DATA = {
   },
   playlist_003: {
     name: '睡不饱的虫虫喜欢的音乐',
-    cover: 'https://p2.music.126.net/rbPvAQ9n2vxqV4QFjPYhZw==/109951162940443079.jpg',
+    cover: 'https://p1.music.126.net/_4Xe7HGXCGNnW4ee108qdA==/109951172395339900.jpg',
     songs: [
-      { title: '匿名的好友', artist: '陈佩贤 Jesslyn', id: 0 },
-      { title: '现在那边是几点', artist: '黄小琥', id: 0 },
-      { title: '离开我的依赖', artist: '王艳薇', id: 0 },
-      { title: '四点的海棠花未眠', artist: '渡', id: 0 },
-      { title: '一样的月光 (Live)', artist: '徐佳莹', id: 0 },
-      { title: '孤高之人(La La La）', artist: 'Taimou', id: 0 },
+      { title: '开始懂了', artist: '孙燕姿', id: 287719 },
+      { title: '匿名的好友', artist: '陈佩贤 Jesslyn', id: 3367652546 },
+      { title: '现在那边是几点', artist: '黄小琥', id: 239168 },
+      { title: '离开我的依赖', artist: '王艳薇', id: 1420706073 },
+      { title: '四点的海棠花未眠', artist: '渡', id: 2681393627 },
+      { title: '一样的月光 (Live)', artist: '徐佳莹', id: 1421191920 },
+      { title: '孤高之人(La La La）', artist: 'Taimou', id: 2602102691 },
     ],
   },
   playlist_004: {
@@ -255,6 +262,9 @@ function initPlayer() {
   if (!playBtn) return;
 
   playerAudio = new Audio();
+  playerAudio.crossOrigin = 'anonymous';
+  // @ts-ignore — referrerpolicy is valid on HTMLAudioElement
+  playerAudio.referrerPolicy = 'no-referrer';
 
   // Load saved state
   const saved = localStorage.getItem(STORAGE_KEY);
@@ -279,23 +289,44 @@ function initPlayer() {
     if (data.cover && cover) cover.src = data.cover;
   }
 
-  // Try to play audio via NetEase free stream
+  // Try to play audio via NetEase free stream with fallback
   function playCurrent() {
     const data = SONG_DATA[playerState.playlistId];
     if (!data) return;
     const song = data.songs[playerState.currentIndex];
     if (!song || !song.id) return;
+    if (song.id === 0) {
+      document.getElementById('player-song').textContent = song.title + ' (暂时无法播放)';
+      return;
+    }
 
-    const audioUrl = `https://music.163.com/song/media/outer/url?id=${song.id}.mp3`;
-    playerAudio.src = audioUrl;
+    const directUrl = `https://music.163.com/song/media/outer/url?id=${song.id}.mp3`;
+    playerAudio.src = directUrl;
     playerAudio.currentTime = playerState.currentTime || 0;
-    playerAudio.play().then(() => {
-      playerState.isPlaying = true;
-      playBtn.textContent = '⏸';
-    }).catch(() => {
-      playerState.isPlaying = false;
-      playBtn.textContent = '▶';
-    });
+
+    playerAudio.play()
+      .then(() => {
+        playerState.isPlaying = true;
+        playBtn.textContent = '⏸';
+      })
+      .catch(() => {
+        // Direct stream failed — try CORS proxy fallback
+        const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(directUrl)}`;
+        playerAudio.src = proxyUrl;
+        playerAudio.currentTime = playerState.currentTime || 0;
+        return playerAudio.play();
+      })
+      .then(() => {
+        if (playerAudio && !playerAudio.paused) {
+          playerState.isPlaying = true;
+          playBtn.textContent = '⏸';
+        }
+      })
+      .catch(() => {
+        playerState.isPlaying = false;
+        playBtn.textContent = '▶';
+        document.getElementById('player-song').textContent = song.title + ' (播放器受限)';
+      });
   }
 
   // Update progress bar
@@ -593,6 +624,132 @@ document.head.appendChild(eggStyle);
   observer.observe(document.body, { childList: true, subtree: true });
 })();
 
+/* ---------- Auto-Update Playlists (CORS proxy) ---------- */
+async function autoUpdatePlaylists() {
+  const cacheKey = 'keenran_songs_cache';
+  const cacheTime = localStorage.getItem(cacheKey + '_time');
+  const now = Date.now();
+
+  // 30 min cooldown
+  if (cacheTime && (now - parseInt(cacheTime)) < 1800000) return;
+
+  try {
+    for (const [plKey, apiUrl] of Object.entries(PLAYLIST_API)) {
+      const resp = await fetch(CORS_PROXY + encodeURIComponent(apiUrl));
+      if (!resp.ok) continue;
+      const data = await resp.json();
+      if (data.code !== 200 || !data.playlist || !data.playlist.tracks) continue;
+      const tracks = data.playlist.tracks;
+      const songs = tracks.map(t => ({
+        title: t.name,
+        artist: (t.ar && t.ar[0]) ? t.ar[0].name : '?',
+        id: t.id || 0,
+      }));
+      if (songs.length > 0) {
+        if (!SONG_DATA[plKey]) SONG_DATA[plKey] = {};
+        SONG_DATA[plKey].songs = songs;
+        if (data.playlist.coverImgUrl) SONG_DATA[plKey].cover = data.playlist.coverImgUrl;
+        if (data.playlist.name) SONG_DATA[plKey].name = data.playlist.name;
+      }
+    }
+    localStorage.setItem(cacheKey + '_time', String(now));
+    localStorage.setItem(cacheKey, JSON.stringify({ songData: SONG_DATA }));
+  } catch (e) {
+    console.warn('Playlist auto-update failed, using built-in data');
+  }
+}
+
+/* ---------- GitHub Projects Widget ---------- */
+async function initGitHubProjects() {
+  const container = document.getElementById('github-projects');
+  if (!container) return;
+
+  const cacheKey = 'keenran_gh_cache';
+  const cached = localStorage.getItem(cacheKey);
+  const cachedTime = localStorage.getItem(cacheKey + '_time');
+  const oneHour = 3600000;
+
+  if (cached && cachedTime && (Date.now() - parseInt(cachedTime)) < oneHour) {
+    container.innerHTML = cached;
+    return;
+  }
+
+  try {
+    const resp = await fetch(CORS_PROXY + encodeURIComponent('https://api.github.com/users/keenranlee/repos?sort=updated&per_page=5'));
+    if (!resp.ok) throw new Error('GitHub API failed');
+    const repos = await resp.json();
+    if (!Array.isArray(repos)) throw new Error('Invalid response');
+
+    let html = '';
+    repos.forEach(repo => {
+      html += '<div class="github-repo">' +
+        '<div><div class="github-repo-name">' + (repo.fork ? '⑂ ' : '⬡ ') + repo.name + '</div>' +
+        (repo.description ? '<div class="github-repo-desc">' + repo.description + '</div>' : '') +
+        '</div>' +
+        '<span class="github-repo-stars">★ ' + (repo.stargazers_count || 0) + '</span>' +
+        '</div>';
+    });
+    if (!html) html = '<div class="github-loading">No public repos</div>';
+    container.innerHTML = html;
+    localStorage.setItem(cacheKey, html);
+    localStorage.setItem(cacheKey + '_time', String(Date.now()));
+  } catch (e) {
+    container.innerHTML = '<div class="github-error">⚠ Failed to load repos</div>';
+  }
+}
+
+/* ---------- Blog Preview Widget ---------- */
+async function initBlogPreview() {
+  const container = document.getElementById('blog-posts');
+  if (!container) return;
+
+  const cacheKey = 'keenran_blog_cache';
+  const cached = localStorage.getItem(cacheKey);
+  const cachedTime = localStorage.getItem(cacheKey + '_time');
+  const oneHour = 3600000;
+
+  if (cached && cachedTime && (Date.now() - parseInt(cachedTime)) < oneHour) {
+    container.innerHTML = cached;
+    return;
+  }
+
+  try {
+    const resp = await fetch(CORS_PROXY + encodeURIComponent('https://blog.keenran.top/atom.xml'));
+    if (!resp.ok) throw new Error('Blog feed failed');
+    const xml = await resp.text();
+
+    // Simple XML parser for Atom feed
+    const posts = [];
+    const entryRegex = /<entry>([\s\S]*?)<\/entry>/g;
+    let m;
+    while ((m = entryRegex.exec(xml)) !== null && posts.length < 3) {
+      const entry = m[1];
+      const title = (entry.match(/<title[^>]*>([^<]*)<\/title>/) || [,'untitled'])[1];
+      const date = (entry.match(/<published>([^<]*)<\/published>/) || [,''])[1];
+      const link = (entry.match(/<link[^>]*href="([^"]*)"/) || [,''])[1];
+      posts.push({ title, date: date.slice(0, 10), link });
+    }
+
+    if (posts.length === 0) {
+      container.innerHTML = '<div class="blog-loading">No posts yet</div>';
+      return;
+    }
+
+    let html = '';
+    posts.forEach(p => {
+      html += '<a href="' + (p.link || '#') + '" target="_blank" class="blog-post" style="text-decoration:none;display:block">' +
+        '<div class="blog-post-title">' + p.title + '</div>' +
+        '<div class="blog-post-meta">' + p.date + '</div>' +
+        '</a>';
+    });
+    container.innerHTML = html;
+    localStorage.setItem(cacheKey, html);
+    localStorage.setItem(cacheKey + '_time', String(Date.now()));
+  } catch (e) {
+    container.innerHTML = '<div class="blog-loading">Blog not published yet</div>';
+  }
+}
+
 /* ---------- Init ---------- */
 function initApp() {
   updateClock();
@@ -602,6 +759,9 @@ function initApp() {
   initCodeRain();
   initTerminal();
   initPlayer();
+  autoUpdatePlaylists();
+  initGitHubProjects();
+  initBlogPreview();
   initDrag();
   initNav();
 }
